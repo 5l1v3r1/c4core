@@ -615,12 +615,25 @@ retry:
     if(ret > buf.len) goto retry;
 }
 
+/**
+ * @see cat
+ * @overload catrs
+ * @ingroup formatting_functions */
+template<class CharOwningContainer, class... Args>
+inline CharOwningContainer catrs(Args const& C4_RESTRICT ...args)
+{
+    CharOwningContainer cont;
+    catrs(&cont, args...);
+    return cont;
+}
+
 /** like cat(), but receives a container, and appends to it instead of
  * overwriting it. The container is resized as needed to contain the result.
  *
  * @return the region newly appended to the original container
  * @see cat()
  * @see catrs()
+ * @overload catrs
  * @ingroup formatting_functions */
 template<class CharOwningContainer, class... Args>
 inline csubstr catrs(append_t, CharOwningContainer * C4_RESTRICT cont, Args const& C4_RESTRICT ...args)
@@ -657,7 +670,7 @@ template<class CharOwningContainer, class Sep, class... Args>
 inline CharOwningContainer catseprs(Sep const& C4_RESTRICT sep, Args const& C4_RESTRICT ...args)
 {
     CharOwningContainer cont;
-    catseprs(&cont, std::cref(sep), std::forward<Args>(args)...);
+    catseprs(&cont, std::cref(sep), args...);
     return cont;
 }
 
@@ -685,9 +698,9 @@ retry:
  * @see format()
  * @ingroup formatting_functions */
 template<class CharOwningContainer, class... Args>
-inline void formatrs(CharOwningContainer * C4_RESTRICT cont, csubstr fmt, Args const&  C4_RESTRICT ...args)
+inline void formatrs(CharOwningContainer * C4_RESTRICT cont, csubstr fmt, Args const& C4_RESTRICT ...args)
 {
-    retry:
+retry:
     substr buf = to_substr(*cont);
     size_t ret = format(buf, fmt, args...);
     cont->resize(ret);
@@ -698,10 +711,10 @@ inline void formatrs(CharOwningContainer * C4_RESTRICT cont, csubstr fmt, Args c
  * @overload formatrs
  * @ingroup formatting_functions */
 template<class CharOwningContainer, class... Args>
-inline CharOwningContainer formatrs(csubstr fmt, Args const&  C4_RESTRICT ...args)
+inline CharOwningContainer formatrs(csubstr fmt, Args const& C4_RESTRICT ...args)
 {
     CharOwningContainer cont;
-    formatrs(&cont, fmt, std::forward<Args>(args)...);
+    formatrs(&cont, fmt, args...);
     return cont;
 }
 

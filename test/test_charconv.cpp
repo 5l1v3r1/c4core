@@ -537,10 +537,8 @@ TEST(atoi, basic)
 }
 
 template<class T>
-void test_atoi(const char* num_, T expected)
+void test_atoi(csubstr num, T expected)
 {
-    SCOPED_TRACE(num_);
-    csubstr num = to_csubstr(num_);
     T val;
     bool ok = atoi(num, &val);
     EXPECT_TRUE(ok);

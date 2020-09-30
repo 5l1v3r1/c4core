@@ -243,6 +243,11 @@ TEST(read_dec, fail)
     EXPECT_EQ(dec, 0);
     EXPECT_TRUE(atoi("00010", &dec));
     EXPECT_EQ(dec, 10);
+    uint32_t udec = 1;
+    EXPECT_TRUE(atou("00000", &udec));
+    EXPECT_EQ(udec, 0);
+    EXPECT_TRUE(atou("00010", &udec));
+    EXPECT_EQ(udec, 10);
 }
 
 TEST(read_hex, fail)
@@ -256,11 +261,11 @@ TEST(read_hex, fail)
     EXPECT_EQ(dec, 0);
     EXPECT_TRUE(atoi("0x00010", &dec));
     EXPECT_EQ(dec, 16);
-    dec = 1;
-    EXPECT_TRUE(atoi("0X00000", &dec));
-    EXPECT_EQ(dec, 0);
-    EXPECT_TRUE(atoi("0X00010", &dec));
-    EXPECT_EQ(dec, 16);
+    uint32_t udec = 1;
+    EXPECT_TRUE(atou("0X00000", &udec));
+    EXPECT_EQ(udec, 0);
+    EXPECT_TRUE(atou("0X00010", &udec));
+    EXPECT_EQ(udec, 16);
 }
 
 TEST(read_oct, fail)
@@ -274,11 +279,11 @@ TEST(read_oct, fail)
     EXPECT_EQ(dec, 0);
     EXPECT_TRUE(atoi("0o00010", &dec));
     EXPECT_EQ(dec, 8);
-    dec = 1;
-    EXPECT_TRUE(atoi("0O00000", &dec));
-    EXPECT_EQ(dec, 0);
-    EXPECT_TRUE(atoi("0O00010", &dec));
-    EXPECT_EQ(dec, 8);
+    uint32_t udec = 1;
+    EXPECT_TRUE(atou("0O00000", &udec));
+    EXPECT_EQ(udec, 0);
+    EXPECT_TRUE(atou("0O00010", &udec));
+    EXPECT_EQ(udec, 8);
 }
 
 TEST(read_bin, fail)
@@ -292,11 +297,11 @@ TEST(read_bin, fail)
     EXPECT_EQ(dec, 0);
     EXPECT_TRUE(atoi("0b00010", &dec));
     EXPECT_EQ(dec, 2);
-    dec = 1;
-    EXPECT_TRUE(atoi("0B00000", &dec));
-    EXPECT_EQ(dec, 0);
-    EXPECT_TRUE(atoi("0B00010", &dec));
-    EXPECT_EQ(dec, 2);
+    uint32_t udec = 1;
+    EXPECT_TRUE(atou("0B00000", &udec));
+    EXPECT_EQ(udec, 0);
+    EXPECT_TRUE(atou("0B00010", &udec));
+    EXPECT_EQ(udec, 2);
 }
 
 template<class ItoaOrUtoa, class ItoaOrUtoaRdx, class Atoi, class I>

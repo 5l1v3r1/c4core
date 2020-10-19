@@ -10,6 +10,7 @@
 #elif defined(__GNUC__)
 #   pragma GCC diagnostic push
 #   pragma GCC diagnostic ignored "-Wuseless-cast"
+#elif defined(_MSC_VER)
 #endif
 
 namespace c4 {
@@ -1041,19 +1042,23 @@ void test_ftoa(substr buf, float f, int precision, const char *scient, const cha
 
     memset(buf.str, 0, buf.len);
     ret = ftoa(buf, f, precision, FTOA_SCIENT);
+    ASSERT_LE(ret, buf.len);
     EXPECT_EQ(buf.left_of(ret), to_csubstr(scient)) << "num=" << f;
 
     memset(buf.str, 0, ret);
     ret = ftoa(buf, f, precision, FTOA_FLOAT);
+    ASSERT_LE(ret, buf.len);
     EXPECT_EQ(buf.left_of(ret), to_csubstr(flt)) << "num=" << f;
 
     memset(buf.str, 0, ret);
     ret = ftoa(buf, f, precision+1, FTOA_FLEX);
+    ASSERT_LE(ret, buf.len);
     EXPECT_EQ(buf.left_of(ret), to_csubstr(flex)) << "num=" << f;
 
     memset(buf.str, 0, ret);
     ret = ftoa(buf, f, precision, FTOA_HEXA);
     if(!hexa_alternative) hexa_alternative = hexa;
+    ASSERT_LE(ret, buf.len);
     EXPECT_TRUE(buf.left_of(ret) == to_csubstr(hexa) || buf.left_of(ret) == to_csubstr(hexa_alternative)) << "num=" << f;
 }
 
@@ -1063,19 +1068,23 @@ void test_dtoa(substr buf, double f, int precision, const char *scient, const ch
 
     memset(buf.str, 0, buf.len);
     ret = dtoa(buf, f, precision, FTOA_SCIENT);
+    ASSERT_LE(ret, buf.len);
     EXPECT_EQ(buf.left_of(ret), to_csubstr(scient)) << "num=" << f;
 
     memset(buf.str, 0, ret);
     ret = dtoa(buf, f, precision, FTOA_FLOAT);
+    ASSERT_LE(ret, buf.len);
     EXPECT_EQ(buf.left_of(ret), to_csubstr(flt)) << "num=" << f;
 
     memset(buf.str, 0, ret);
     ret = dtoa(buf, f, precision+1, FTOA_FLEX);
+    ASSERT_LE(ret, buf.len);
     EXPECT_EQ(buf.left_of(ret), to_csubstr(flex)) << "num=" << f;
 
     memset(buf.str, 0, ret);
     ret = dtoa(buf, f, precision, FTOA_HEXA);
     if(!hexa_alternative) hexa_alternative = hexa;
+    ASSERT_LE(ret, buf.len);
     EXPECT_TRUE(buf.left_of(ret) == to_csubstr(hexa) || buf.left_of(ret) == to_csubstr(hexa_alternative)) << "num=" << f;
 }
 
@@ -1533,6 +1542,185 @@ TEST(scan_one_real, hexadecimal)
 }
 
 #endif
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+C4_STATIC_ASSERT(sizeof(uint32_t) == sizeof(float));
+C4_STATIC_ASSERT(sizeof(uint64_t) == sizeof(double));
+uint32_t realbits(float  d) { return *(uint32_t*)&d; }
+uint64_t realbits(double d) { return *(uint64_t*)&d; }
+
+template<class T>
+void test_ryu_scan(csubstr str, T expected)
+{
+    std::cout << "=====================================\n";
+    std::cout << expected << "\n";
+    T actual = expected + T(1);
+    EXPECT_TRUE(detail::scan_one_ryu(str, &actual));
+    EXPECT_EQ(actual, expected);
+}
+template<class T, class Printer>
+void test_ryu_roundtrip_driver(csubstr id, substr buf, T val, uint32_t precision, Printer fn)
+{
+    // verify first that passing an empty string
+    // returns the needed size
+    size_t ret = fn({}, val, precision);
+    EXPECT_GT(ret, 0u);
+    ASSERT_GE(buf.len, ret);
+    // print the value with the given precision
+    buf.fill('*');
+    size_t ret2 = fn(buf, val, precision);
+    EXPECT_LE(ret2, ret);
+    csubstr actual = buf.first(ret2);
+    std::cout << "----> [" << id << "] " << val << "  precision=" << precision << "  actual=" << actual << "\n";
+    // read it back - this will be our reference value
+    // instead of the original one because it won't
+    // have the same precision
+    T ref = val + T(1);
+    bool ok = detail::scan_one_ryu(actual, &ref);
+    EXPECT_TRUE(ok);
+
+    // print the ref value with the given precision
+    buf.fill('*');
+    ret2 = fn(buf, ref, precision);
+    EXPECT_LE(ret2, ret);
+    actual = buf.first(ret2);
+    // read it back
+    T cp = ref + T(1);
+    ok = detail::scan_one_ryu(actual, &cp);
+    EXPECT_TRUE(ok);
+    EXPECT_EQ(cp, ref);
+    EXPECT_EQ(realbits(cp), realbits(ref));
+}
+
+template<class T>
+void test_ryu_roundtrip(substr buf, T val)
+{
+    std::cout << "=====================================\n";
+    std::cout << val << "\n";
+
+    // first test that passing an empty string
+    // returns the needed size
+    size_t ret = detail::print_one_ryu({}, val);
+    EXPECT_GT(ret, 0u);
+    ASSERT_GE(buf.len, ret);
+    // print the value
+    buf.fill('*');
+    size_t ret2 = detail::print_one_ryu(buf, val);
+    EXPECT_LE(ret2, ret);
+    csubstr actual = buf.first(ret2);
+    csubstr check = buf.first(buf.first_of('*'));
+    EXPECT_EQ(actual, check);
+    // read it back
+    T cp = val + T(1);
+    bool ok = detail::scan_one_ryu(actual, &cp);
+    EXPECT_TRUE(ok);
+    // verify that it's bitwise equal
+    EXPECT_EQ(cp, val);
+    EXPECT_EQ(realbits(cp), realbits(val));
+
+    constexpr const uint32_t max_precision = 15;
+    using fn_type = size_t (*)(substr, T, uint32_t);
+    fn_type fn;
+
+    // test a fixed format roundtrip with given precision
+    fn = &detail::print_one_ryu_fixed;
+    for(uint32_t precision = 0; precision < max_precision; ++precision)
+    {
+        test_ryu_roundtrip_driver("fixed", buf, val, precision, fn);
+    }
+
+    // test an exp format roundtrip with given precision
+    fn = &detail::print_one_ryu_exp;
+    for(uint32_t precision = 0; precision < max_precision; ++precision)
+    {
+        test_ryu_roundtrip_driver("exp", buf, val, precision, fn);
+    }
+}
+
+TEST(ryu, float)
+{
+    char buf_[128];
+    substr buf(buf_);
+
+    float actual;
+    EXPECT_TRUE(detail::scan_one_ryu("1.0000000", &actual));
+    EXPECT_EQ(actual, 1.f);
+    actual = 0.f;
+    EXPECT_TRUE(detail::scan_one_ryu("1.00000000", &actual));
+    EXPECT_EQ(actual, 1.f);
+    actual = 0.f;
+    EXPECT_TRUE(detail::scan_one_ryu("1.000000000", &actual));
+    EXPECT_EQ(actual, 1.f);
+/*
+    return;
+*/
+    #define _t(val) \
+        test_ryu_scan(#val, val##f);\
+        test_ryu_scan("-" #val, -val##f);\
+        test_ryu_roundtrip(buf, val##f);\
+        test_ryu_roundtrip(buf, -val##f)
+    _t(0.);
+    _t(0.0);
+    _t(0.375);
+    _t(0.15625);
+    _t(12.375);
+    _t(8388606.);
+    _t(8388607.);
+    _t(8388608.);
+    _t(1.);
+    _t(2.);
+    _t(4.);
+    _t(0.5);
+    _t(0.1);
+    _t(0.01);
+    #undef _t
+}
+
+TEST(ryu, double)
+{
+    char buf_[128];
+    substr buf(buf_);
+/*
+    size_t ret;
+    csubstr expected;
+    
+    buf.fill('*');
+    expected = csubstr("-4.000000000e+00");
+    ret = detail::print_one_ryu_exp(buf, -4., 8);
+    ASSERT_EQ(ret, expected.len);
+    EXPECT_EQ(buf.first(ret), expected);
+
+    buf.fill('*');
+    expected = csubstr("-4.0000000000e+00");
+    ret = detail::print_one_ryu_exp(buf, -4., 9);
+    ASSERT_EQ(ret, expected.len);
+    EXPECT_EQ(buf.first(ret), expected);
+*/
+ 
+    #define _t(val) \
+        test_ryu_scan(#val, val);\
+        test_ryu_scan("-" #val, -val);\
+        test_ryu_roundtrip(buf, val);\
+        test_ryu_roundtrip(buf, -val)
+    _t(0.);
+    _t(0.0);
+    _t(0.375);
+    _t(0.15625);
+    _t(12.375);
+    _t(8388607.);
+    _t(8388608.);
+    _t(1.);
+    _t(2.);
+    _t(4.);
+    _t(0.5);
+    _t(0.1);
+    _t(0.01);
+    #undef _t
+}
+
 
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------

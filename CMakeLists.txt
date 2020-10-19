@@ -3,6 +3,36 @@ project(c4core)
 
 include(./cmake/c4Project.cmake)
 
+set(JKJ_FP_ENABLE_SUBPROJECT ON)
+c4_require_subproject(fp REMOTE
+    GIT_REPOSITORY https://github.com/jk-jeon/fp
+    GIT_TAG master)
+
+# ryu is required for str<->float conversions
+c4_download_remote_proj(ryu C4CORE_RYU_DIR
+    GIT_REPOSITORY https://github.com/ulfjack/ryu
+    GIT_TAG master)
+set(C4CORE_RYU_SRC
+    ${C4CORE_RYU_DIR}/ryu/common.h
+    ${C4CORE_RYU_DIR}/ryu/d2fixed.c
+    ${C4CORE_RYU_DIR}/ryu/d2fixed_full_table.h
+    ${C4CORE_RYU_DIR}/ryu/d2s.c
+    ${C4CORE_RYU_DIR}/ryu/d2s_full_table.h
+    ${C4CORE_RYU_DIR}/ryu/d2s_intrinsics.h
+    ${C4CORE_RYU_DIR}/ryu/d2s_small_table.h
+    ${C4CORE_RYU_DIR}/ryu/digit_table.h
+    ${C4CORE_RYU_DIR}/ryu/f2s.c
+    ${C4CORE_RYU_DIR}/ryu/f2s_full_table.h
+    ${C4CORE_RYU_DIR}/ryu/f2s_intrinsics.h
+    ${C4CORE_RYU_DIR}/ryu/ryu.h
+    ${C4CORE_RYU_DIR}/ryu/ryu_parse.h
+    ${C4CORE_RYU_DIR}/ryu/s2d.c
+    ${C4CORE_RYU_DIR}/ryu/s2f.c
+)
+if(NOT MSVC)
+    set_source_files_properties(${C4CORE_RYU_SRC} PROPERTIES COMPILE_FLAGS "-x c++")
+endif()
+
 c4_declare_project(c4core
     DESC "Multiplatform low-level C++ utilities"
     AUTHOR "Joao Paulo Magalhaes <dev@jpmag.me>"
@@ -17,6 +47,7 @@ c4_add_library(c4core
     INC_DIRS
        $<BUILD_INTERFACE:${C4CORE_SRC_DIR}> $<INSTALL_INTERFACE:include>
        $<BUILD_INTERFACE:${C4CORE_EXT_DIR}> $<INSTALL_INTERFACE:include/c4/ext>
+       $<BUILD_INTERFACE:${C4CORE_RYU_DIR}>
     SOURCE_ROOT ${C4CORE_SRC_DIR}
     SOURCES
         c4/allocator.hpp
@@ -66,6 +97,7 @@ c4_add_library(c4core
         c4/windows_pop.hpp
         c4/windows_push.hpp
         c4/c4core.natvis
+        ${C4CORE_RYU_SRC}
 )
 
 
